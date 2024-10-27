@@ -1,0 +1,149 @@
+---
+title: "Projekt_rodzicielstwo_v3"
+author: "Olga Sieradzan"
+date: "2024-10-25"
+output: html_document
+---
+
+## POBÓR DANYCH I STWORZENIE TABELI GŁOWNEJ
+```{r}
+library(readxl)
+library(tidyr)
+library(dplyr)
+
+join <- function( x , y ) {
+  left_join(x,y, by = "Kraj")
+}
+
+Tabela <- read_excel("tabelka_hihi.xlsx")
+Tabela1 <- read_excel("tabelka_hihi.xlsx", sheet = 2)
+Tabela2 <- read_excel("tabelka_hihi.xlsx", sheet = 3)
+Tabela3 <- read_excel("tabelka_hihi.xlsx", sheet = 4)
+Tabela4 <- read_excel("tabelka_hihi.xlsx", sheet = 5)
+Tabela5 <- read_excel("tabelka_hihi.xlsx", sheet = 6)
+Tabela6 <- read_excel("tabelka_hihi.xlsx", sheet = 7)
+
+a <- join(Tabela, Tabela1)
+b <- join(  a, Tabela2 )
+c <- join ( b, Tabela3 )
+d<- join ( c, Tabela4  )
+e <- join ( d, Tabela5 )
+MAIN <- join ( e, Tabela6 )
+
+
+MAIN
+# SĄ braki danych ale narazie nie zwracam na nie uwagi bo nie wiem za bardzo jak się nimi zając czy usunąś obiekty z badania czy usunąć zmienną, czy jakoś zastąpić. Narazie robie wstępne EDA z warunkiem nie brania NA pod uwagę żeby zobaczyć czy może coś wyjdzie ciekawego po drodze 
+
+# Państwa z brakami danych : Turcja, Czechy,Luksembourg, Malta, Czarnogóra, Holandia
+
+
+```
+
+
+## KORELACJA
+```{r}
+library(corrplot)
+korelacja <- cor(MAIN[c(-1)], method = "spearman", use = "pairwise.complete.obs")
+corrplot(korelacja)
+
+# Przyjmując | korelacja |>0.6 to problem sprawiają pension i social benefits oraz overcrowding i daily income
+# Wyrzucam z badania social_benefits i overcrowding
+
+
+
+```
+```{r}
+MAIN <- MAIN %>% 
+  select(-overcrowding, -social_benefits)
+
+colnames(MIANWORK)
+```
+
+## WARTOŚCI ODSTAJĄCE
+```{r}
+MIANWORK <- MAIN %>%
+  select(-Kraj)
+
+
+
+for (col_name in colnames(MIANWORK)) {
+  boxplot(MIANWORK[[col_name]], main = col_name, xlab = "Wartości", ylab = "Rozkład")
+}
+
+```
+### INDENTYFIKACJA WARTOŚCI ODSTAJĄCYCH
+
+```{r}
+MAIN$Kraj[MAIN$unmet_needs > 1.5]
+```
+
+```{r}
+MAIN$Kraj[MAIN$pension > 17]
+```
+```{r}
+MAIN$Kraj[MAIN$housing_cost > 21]
+```
+```{r}
+MAIN$Kraj[MAIN$co > 13]
+```
+```{r}
+MAIN$Kraj[MAIN$mother_mortality > 7]
+```
+```{r}
+MAIN$Kraj[MAIN$neonatal_mortality > 4]
+```
+```{r}
+MAIN$Kraj[MAIN$suicide > 6]
+```
+```{r}
+MAIN$Kraj[MAIN$forest_coverage > 55]
+```
+```{r}
+MAIN$Kraj[MAIN$forest_coverage < 10]
+colnames(MAIN)
+```
+
+Turcje i Malte myśle że można usunąc bo niedość że mają braki w danych to często odstają
+Reszte braków, bo nie ma ich aż tak dużo, uzupełniałabym medianą 
+Wartości odstających pozostałych bym nie usuwała, tylko moge je zastapić wartościami odpowiednio górnego albo dolnego wąsa i tych pieknych wzorków z kwantylami. 
+
+## PRZYGOTOWANIE DAMYCH DO TWORZENIA RANKINGU
+
+Tym razem zamiast standaryzacji będzie unitaryzacja 
+
+```{r}
+
+## Funkcja unitaryzująca 
+uni <- function(x) {
+  (x - min(x))/(max(x) - min(x))
+}
+
+## Funkcja budująca ranking 
+
+Ranking_fun <- function(df) {
+  
+  # UNITARYZACJA 
+  df <- as.data.frame(lapply(df, uni))
+  
+  # ZAMIANA DESTYMULANT NA STYMULANTY 
+  selected_col <- c("unmet_needs","housing_cost", "co","mother_mortality","neonatal_mortality","suicide")
+  
+  df[selected_columns] <- 1 - df[selected_columns]
+  
+}
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
