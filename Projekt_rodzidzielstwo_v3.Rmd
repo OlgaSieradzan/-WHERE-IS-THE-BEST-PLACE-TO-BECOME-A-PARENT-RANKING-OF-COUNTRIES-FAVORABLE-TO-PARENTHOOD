@@ -22,13 +22,19 @@ Tabela3 <- read_excel("tabelka_hihi.xlsx", sheet = 4)
 Tabela4 <- read_excel("tabelka_hihi.xlsx", sheet = 5)
 Tabela5 <- read_excel("tabelka_hihi.xlsx", sheet = 6)
 Tabela6 <- read_excel("tabelka_hihi.xlsx", sheet = 7)
+Tabela7 <- read_excel("tabelka_hihi.xlsx", sheet = 8)
+Tabela8 <- read_excel("tabelka_hihi.xlsx", sheet = 9)
+Tabela9 <- read_excel("tabelka_hihi.xlsx", sheet = 10)
 
 a <- join(Tabela, Tabela1)
 b <- join(  a, Tabela2 )
 c <- join ( b, Tabela3 )
 d<- join ( c, Tabela4  )
 e <- join ( d, Tabela5 )
-MAIN <- join ( e, Tabela6 )
+ee <- join(e, Tabela7)
+ff<- join(ee, Tabela6)
+g <- join ( ff, Tabela8 )
+MAIN <- join (g,Tabela9)
 
 
 MAIN
@@ -42,6 +48,7 @@ MAIN
 
 ## KORELACJA
 ```{r}
+str(MAIN)
 library(corrplot)
 korelacja <- cor(MAIN[c(-1)], method = "spearman", use = "pairwise.complete.obs")
 corrplot(korelacja)
@@ -52,12 +59,18 @@ corrplot(korelacja)
 
 
 ```
+
+
 ```{r}
 MAIN <- MAIN %>% 
-  select(-overcrowding, -social_benefits)
+  select(-overcrowding, -social_benefits, -paternal_leave, -ptlv_job_protect, -working_hours, -maternal_leave)
 
-colnames(MIANWORK)
+
 ```
+
+## WSKAŹNIK ZMIENNOŚCI
+
+
 
 ## WARTOŚCI ODSTAJĄCE
 ```{r}
@@ -74,75 +87,427 @@ for (col_name in colnames(MIANWORK)) {
 ### INDENTYFIKACJA WARTOŚCI ODSTAJĄCYCH
 
 ```{r}
-MAIN$Kraj[MAIN$unmet_needs > 1.5]
+lista1 <- MAIN$Kraj[MAIN$unmet_needs > 1.5]
 ```
 
 ```{r}
-MAIN$Kraj[MAIN$pension > 17]
+lista2 <- MAIN$Kraj[MAIN$pension > 17]
 ```
 ```{r}
-MAIN$Kraj[MAIN$housing_cost > 21]
+lista3 <- MAIN$Kraj[MAIN$housing_cost > 21]
 ```
 ```{r}
-MAIN$Kraj[MAIN$co > 13]
+lista4 <- MAIN$Kraj[MAIN$co > 13]
 ```
 ```{r}
-MAIN$Kraj[MAIN$mother_mortality > 7]
+lista5 <- MAIN$Kraj[MAIN$mother_mortality > 7]
 ```
 ```{r}
-MAIN$Kraj[MAIN$neonatal_mortality > 4]
+lista6 <- MAIN$Kraj[MAIN$neonatal_mortality > 4]
 ```
 ```{r}
-MAIN$Kraj[MAIN$suicide > 6]
+lista7 <- MAIN$Kraj[MAIN$suicide > 6]
 ```
 ```{r}
-MAIN$Kraj[MAIN$forest_coverage > 55]
+lista8 <- MAIN$Kraj[MAIN$forest_coverage > 55]
 ```
 ```{r}
-MAIN$Kraj[MAIN$forest_coverage < 10]
-colnames(MAIN)
+lista9 <- MAIN$Kraj[MAIN$forest_coverage < 10]
+
 ```
 
 Turcje i Malte myśle że można usunąc bo niedość że mają braki w danych to często odstają
 Reszte braków, bo nie ma ich aż tak dużo, uzupełniałabym medianą 
-Wartości odstających pozostałych bym nie usuwała, tylko moge je zastapić wartościami odpowiednio górnego albo dolnego wąsa i tych pieknych wzorków z kwantylami. 
+Wartości odstających pozostałych bym nie usuwała, tylko moge je zastapić wartościami odpowiednio górnego albo dolnego wąsa z tych pieknych wzorków z kwantylami. 
 
-## PRZYGOTOWANIE DAMYCH DO TWORZENIA RANKINGU
+## USUNIĘCIE OBIEKTÓW 
+```{r}
+MAIN <- MAIN[!(MAIN$Kraj %in% c("Türkiye", "Malta")), ]
 
-Tym razem zamiast standaryzacji będzie unitaryzacja 
+MIANWORK <- MAIN %>%
+  select(-Kraj)
+```
+
+
+## ZAJĘCIE SIĘ BRAKAMI I WARTOŚCIAMI ODSTAJĄCYMI 
 
 ```{r}
-
-## Funkcja unitaryzująca 
-uni <- function(x) {
-  (x - min(x))/(max(x) - min(x))
+odstajace <- function(x, war) {
+  
+  # Obliczanie kwantyli
+  kwantyle <- quantile(x, probs = c(0.25, 0.75), na.rm = TRUE)
+  
+  Q1 <- kwantyle[1]  
+  Q3 <- kwantyle[2]  
+  
+  # Obliczanie wartości granicznej
+  var <- Q3 + 1.5 * (Q3 - Q1)
+  
+  # Użycie mutate z dplyr do zastąpienia wartości
+  x <- ifelse(x > war, var, x)
+  
+  return(x)
 }
 
-## Funkcja budująca ranking 
-
-Ranking_fun <- function(df) {
+braki <- function(df) {
   
-  # UNITARYZACJA 
-  df <- as.data.frame(lapply(df, uni))
-  
-  # ZAMIANA DESTYMULANT NA STYMULANTY 
-  selected_col <- c("unmet_needs","housing_cost", "co","mother_mortality","neonatal_mortality","suicide")
-  
-  df[selected_columns] <- 1 - df[selected_columns]
-  
+  df_filled <- as.data.frame(lapply(df, function(x) {
+    if (is.numeric(x)) {
+      
+      x[is.na(x)] <- median(x, na.rm = TRUE)
+    }
+    return(x)
+  }))
+  return(df_filled)
 }
 
+
+
+
+```
+
+```{r}
+MAIN$unmet_needs <- odstajace(MAIN$unmet_needs, 1.5)
+MAIN$pension <- odstajace(MAIN$pension, 17)
+MAIN$housing_cost <- odstajace(MAIN$housing_cost, 21)
+MAIN$co <- odstajace(MAIN$co, 13)
+MAIN$mother_mortality <- odstajace(MAIN$mother_mortality, 7)
+MAIN$neonatal_mortality <- odstajace(MAIN$neonatal_mortality, 4)
+MAIN$suicide <- odstajace(MAIN$suicide, 6)
+MAIN$forest_coverage <- odstajace(MAIN$forest_coverage, 55)
+MAIN$nights<- odstajace(MAIN$nights, 9)
+
+MAIN <- braki(MAIN)
+MIANWORK <- MAIN %>%
+  select(-Kraj)
 
 ```
 
 
 
+## USTALENIE WAG 
+
+Zmienne można posegregować w ten sposób : 
+
+Środowisko - CO2, forest_coverage (*Stanśrodowiska w państwie*)
+Zdrowie - mother_mortality, neonatal_mortality,suicide, unmet_needs (*Stan systemu zdrowia w państwie*)
+Jakośc życia - housing_cost, daily_income, global_peace_index", female_income_share, nights, poverty_risk (*Jakość życia w państwie, pod względem kosztów, bezpieczeństwa i równości*)
+Wspracie  - dadstoo, maternal_leave, pension (*Długości urlopów rodzicielskich, wspracie finansowe i równouprawnienie*)
+
+Uważam że te kategoria można ułozyć w takiej hierarchii 
+
+Wsparcie
+Zdrowie
+Jakość życia 
+Środowisko 
+
+Bazowe wagi to 
+```{r}
+1/14
+colnames(MAIN)
+```
+
+Wagi dla poszczególnych kategorii 
+
+Wspracie **0.1** (2 * 0.15 = 0.3)
+Zdrowie **0.08** (4 * 0.08 = 0.32)
+jakośc życia **0.04** (6 *0.04 = 0.24)
+Środowisko **0.05** (2 * 0.07 = 0.14)
+ 
+SUMA WAG = 1
+
+```{r}
+#Nadawanie wag zmiennym diagnostycznym 
+  wagi <- c(0.08,0.15,0.04, 0.05,0.08,0.08,0.08,0.05,0.15,0.04,0.04,0.04,0.04,0.04)
+
+```
+
+
+
+## PRZYGOTOWANIE DANYCH DO TWORZENIA RANKINGU
+
+Tym razem zamiast standaryzacji będzie standaryzacja pozycyjna
+Oraz ranking zostanie stworzony metodą standaryzowanych sum 
+
+```{r}
+
+## Standaryzacja pozycyjna 
+uni <- function(x) {
+  (x - median(x))/median(abs(x - median(x)))
+}
+
+## Zaminana nominanty na stymulante Xj > Nj
+
+nom1 <- function(x, N){
+  1/(x -N +1)
+}
+
+## Zaminana nominanty na stymulante Xj < Nj
+
+nom2 <- function(x, N){
+  -1/(x -N -1)
+}
+
+## Sumowanie z wagami 
+
+wag <- function(x, wagi) {
+  sum(x* wagi)
+}
+
+```
+
+
+```{r}
+# ZAMIANA NOMINANTY NA STYMULANTE 
+  # W przypadku femmale income to będzie 0.5, a w przypadku global peace index 1 
+
+  MIANWORK$female_income_share <- nom2(MIANWORK$female_income_share, 0.5)
+  
+   MIANWORK$global_peace_index <- nom1(MIANWORK$female_income_share, 1)
+   MIANWORK
+```
+
+
+```{r}
+ # STANDARYZACJA POZYCYJNA 
+  MIANWORK <- as.data.frame(lapply(MIANWORK, uni))
+MIANWORK
+```
+
+```{r}
+# ZAMIANA DESTYMULANT NA STYMULANTY 
+  selected_col <- c("unmet_needs","housing_cost", "co","mother_mortality","neonatal_mortality","suicide", "nights", "poverty_risk")
+  
+  MIANWORK[,selected_col] <- (-1) * MIANWORK[,selected_col]
+  
+```
+
+```{r}
+ #Średnia ważona dla każdego kraju (wskaźnik syntetyczny)
+
+  sw = apply(MIANWORK, 1, wag, wagi = wagi)
+round(sw,2)
+```
+
+```{r}
+  #Standaryzacja wskaźnika syntetycznego 
+  
+  Ranking <- data.frame(
+    Kraj = MAIN$Kraj,
+    WSK = (sw - min(sw)) / (max(sw - min(sw)))
+  )
+  
+```
+
+```{r}
+Ranking <- Ranking[order(Ranking$WSK, decreasing = TRUE), ]
+```
+
+```{r}
+Ranking$WSK <- round(Ranking$WSK,4)
+Ranking
+```
+
+## GRUPOWANIE 
+
+## ANALIZA SKUPIEŃ 
+
+
+```{r}
+dist <- dist(MAIN[,-c(1)], method = "euclidean")
+
+hc_Ward <- hclust(dist, method = "ward.D")
+
+plot(hc_Ward, labels = MAIN$Kraj, las = 2,  
+     main = "Dendrogram - metoda Warda",
+     xlab = "", sub = "", cex = 0.8, hang = -1) 
+
+rect.hclust(hc_Ward, k = 4, border = "red")
+```
+
+
+```{r}
+set.seed(123) 
+
+
+grupy_h <- cutree(hc_Ward, k = 4)
+
+MAIN$Klastry_Ward <- as.factor(grupy_h)
+
+grupa1 <- MAIN$Kraj[MAIN$Klastry_Ward == 1]
+grupa2 <- MAIN$Kraj[MAIN$Klastry_Ward == 2]
+grupa3 <- MAIN$Kraj[MAIN$Klastry_Ward== 3]
+grupa4 <- MAIN$Kraj[MAIN$Klastry_Ward == 4]
+
+
+max_length <- max(length(grupa1), length(grupa2), length(grupa3), length(grupa4))
 
 
 
 
+df_grupy <- data.frame(
+  Grupa1 = c(grupa1, rep(NA, max_length - length(grupa1))),
+  Grupa2 = c(grupa2, rep(NA, max_length - length(grupa2))),
+  Grupa3 = c(grupa3, rep(NA, max_length - length(grupa3))),
+  Grupa4 = c(grupa4, rep(NA, max_length - length(grupa4)))
+  
+)
+ 
 
 
+```
+
+## WIZUALIZACJA RANKINGU ZA POMOCASKALOWANIA WIELOWYMIAROWEGO 
+
+```{r}
+library(dplyr)
+library(smacof)
+library(ggplot2)
+
+# Standaryzacja do skalowania 
+
+SKAL <- as.data.frame(lapply(MAIN[,2:15], scale))
+
+```
+
+```{r}
+oblicz_odleglosci <- function(data, wagi) {
+  n <- nrow(data)
+  macierz_odleglosci <- matrix(0, nrow = n, ncol = n)
+
+  for (i in 1:n) {
+    for (k in 1:n) {
+      # Oblicz odległość euklidesową
+      odleglosc <- sum(wagi^2 * (data[i, ] - data[k, ])^2)
+      macierz_odleglosci[i, k] <- odleglosc
+    }
+  }
+  return(macierz_odleglosci)
+}
+```
+
+```{r}
+zmienne <- as.matrix(SKAL)
+
+wagi <- as.numeric(wagi)  
+
+macierz_odleglosci <- oblicz_odleglosci(zmienne, wagi)
+
+result <- smacofSym(macierz_odleglosci, ndim = 2, type = "ratio")
+
+mds_data <- as.data.frame(result$conf)  
+
+colnames(mds_data) <- c("x", "y")  
+
+mds_data$Kraj <- MAIN$Kraj
+mds_data$Klastry <- MAIN$Klastry_Ward
+
+ggplot(mds_data, aes(x = x, y = y, label = Kraj, color = as.factor(Klastry))) +
+  geom_point(size = 2) +  
+  geom_text(size = 3, vjust = -1) +  
+  labs(x = "Dim 1",
+       y = "Dim 2",
+       color = "Cluster") +  
+  theme_minimal(base_size = 10) +
+  scale_color_manual(values = c("deepskyblue4","deeppink4","hotpink2","mediumorchid3")) 
+
+
+```
+
+## STRESS
+
+```{r}
+stress_value <- result$stress
+print(stress_value)
+```
+
+
+## STATYSTYKI OPISOWE DLA GRUP
+```{r}
+
+oblicz_statystyki <- function(grupa) {
+  grupa %>%
+    summarise(across(where(is.numeric), 
+                     list(srednia = mean, wsp_zmiennosci = sd(.x) / mean(.x) * 100)))
+}
+
+wyniki <- MAIN %>%
+  group_by(Klastry_Ward) %>%
+  filter(!is.na(Klastry_Ward)) %>%
+  select(-Kraj) %>%  # Pomijamy kolumnę Kraj
+  summarise(across(where(is.numeric), 
+                   list(srednia = mean, wsp_zmiennosci = ~ sd(.x) / mean(.x) * 100))) %>%
+  arrange(Klastry_Ward)
+
+wyniki
+
+```
+
+
+## MAPKI 
+```{r}
+library("ggrepel")
+library("sf")
+library("rnaturalearth")
+library("rnaturalearthdata")
+
+library(fmsb)
+library(grDevices)
+
+
+```
+
+
+```{r}
+
+world <- ne_countries(scale = "medium", returnclass = "sf")
+
+
+MAIN <- MAIN %>%
+mutate(Kraj = ifelse(Kraj == "Czechia", "Czech Republic", Kraj))
+
+Panstwo0 <- world %>%
+  filter (name_long %in% MAIN$Kraj) %>%
+  select ( name_long,geometry)
+
+ world %>% 
+  ggplot() +
+  geom_sf() +
+  geom_sf(data=Panstwo0, aes(fill=Panstwo0$name_long),fill = "deepskyblue4", color = "black") +
+   coord_sf(xlim = c(-27.603002, 44.043782),
+            ylim =  c(73.061423,33.659532), expand = FALSE)+ 
+  theme_light(base_size = 16) +
+  labs( fill = NULL)
+```
+
+
+
+```{r}
+colnames(Panstwo0) <- c("Kraj", "geometry")
+Panstwo1 <- left_join(Panstwo0, MAIN, by="Kraj")
+
+world %>% 
+    ggplot() +
+    geom_sf() +
+    geom_sf(data= Panstwo1, aes(fill= Klastry_Ward), color = "black") +
+    coord_sf(xlim = c(-27.603002, 44.043782),
+             ylim =  c(73.061423,33.659532), expand = FALSE) + 
+    scale_fill_manual(values = c("deepskyblue4","deeppink4","hotpink2","mediumorchid3")) +
+    labs(fill = "Cluster") +
+    theme_bw(base_size = 16) 
+    
+```
+
+
+
+
+```{r}
+switzerland_data <- MAIN %>%
+  filter(Kraj == "Switzerland")
+
+# Wyświetlenie wyników
+print(switzerland_data)
+```
 
 
 
