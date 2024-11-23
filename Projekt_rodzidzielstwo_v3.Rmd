@@ -310,6 +310,18 @@ Ranking
 
 ## GRUPOWANIE 
 
+```{r}
+Ranking <- Ranking %>%
+    mutate (
+      "grupa" = ifelse(WSK > (mean(WSK))+sd(WSK),"GR_I",
+                       ifelse(WSK > (mean(WSK)), "GR_II",
+                              ifelse(WSK > (mean(WSK))-sd(WSK),"GR_III","GR_IV"))
+    ))
+
+Ranking
+```
+
+
 ## ANALIZA SKUPIEŃ 
 
 
@@ -400,16 +412,16 @@ mds_data <- as.data.frame(result$conf)
 colnames(mds_data) <- c("x", "y")  
 
 mds_data$Kraj <- MAIN$Kraj
-mds_data$Klastry <- MAIN$Klastry_Ward
+mds_data <- left_join(mds_data, Ranking, by= "Kraj")
 
-ggplot(mds_data, aes(x = x, y = y, label = Kraj, color = as.factor(Klastry))) +
+ggplot(mds_data, aes(x = x, y = y, label = Kraj, color = grupa)) +
   geom_point(size = 2) +  
   geom_text(size = 3, vjust = -1) +  
   labs(x = "Dim 1",
        y = "Dim 2",
-       color = "Cluster") +  
-  theme_minimal(base_size = 10) +
-  scale_color_manual(values = c("deepskyblue4","deeppink4","hotpink2","mediumorchid3")) 
+       color = "Group") +  
+  theme_minimal(base_size = 16) +
+  scale_color_manual(values = c("#A63446","#FF84E8","#3943B7","#44BBA4")) 
 
 
 ```
@@ -502,12 +514,59 @@ world %>%
 
 
 ```{r}
-switzerland_data <- MAIN %>%
-  filter(Kraj == "Switzerland")
+Ranking <- Ranking %>%
+mutate(Kraj = ifelse(Kraj == "Czechia", "Czech Republic", Kraj))
 
-# Wyświetlenie wyników
-print(switzerland_data)
+Panstwo1 <- left_join(Panstwo0, Ranking, by="Kraj")
+
+world %>% 
+    ggplot() +
+    geom_sf() +
+    geom_sf(data= Panstwo1, aes(fill=grupa), color = "black") +
+   coord_sf(xlim = c(-27.603002, 44.043782),
+            ylim =  c(73.061423,33.659532), expand = FALSE)+ 
+    scale_fill_manual(values = c("#A63446","#FF84E8","#3943B7","#44BBA4"))+
+    labs( fill = "Group")+
+  theme_bw(base_size = 16)
+    
 ```
+
+
+## WYKRESY RADAROWE 
+
+```{r}
+
+MIANWORK$Kraj <- MAIN$Kraj
+dane_chart <- MIANWORK
+
+nazwy <- as.vector(colnames(MIANWORK))
+
+chart1 <- dane_chart [dane_chart$Kraj == "Latvia",]
+
+chart1
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
